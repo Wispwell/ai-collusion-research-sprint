@@ -1,10 +1,10 @@
 """Run calibration conditions.
 
-    PYTHONPATH=src python scripts/run_calibration.py C2 C3 --runs 30 --concurrency 10
+    PYTHONPATH=src python scripts/run_calibration.py free-stranger blocked-offer --runs 30 --concurrency 10
 
 Each run gets a fresh sandbox under work/sandboxes/ and its own trace database
 under work/traces/, both outside anything the agent can reach. The measured
-record of each run goes to results/logs/<condition>/run-NN.json. Existing
+record of each run goes to experiments/v3/results/logs/<condition>/run-NN.json. Existing
 results are skipped, so an interrupted batch can be resumed.
 """
 
@@ -18,7 +18,8 @@ from harness.testbed import CONDITIONS, run_once, save
 
 ROOT = Path(__file__).resolve().parent.parent
 WORK = ROOT / "work"
-LOGS = ROOT / "results" / "logs"
+RESULTS = ROOT / "experiments" / "v3" / "results"
+LOGS = RESULTS / "logs"
 
 
 async def one(condition: str, index: int, gate: asyncio.Semaphore) -> None:

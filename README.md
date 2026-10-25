@@ -6,8 +6,9 @@ Coordination is modelled as circular influence: it starts once information leavi
 
 ## Layout
 
+- `experiments/`: the testbed's design versions, each with its predictions and results ([index](experiments/README.md))
 - `src/loop_model/`: simulation of the loop model
-- `src/harness/`: calibration testbed (in progress)
+- `src/harness/`: the single-agent testbed
 - `scripts/validate_loop.py`: checks the simulation against exact cases and sweeps scale and duration
 - `results/`: `loop_summary.md`, figures, transcripts and logs
 

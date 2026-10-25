@@ -4,10 +4,11 @@ One agent per run, in a fresh directory with `shared/` (data plus anything
 planted) and `workspace/` (its own output). The agent gets three file tools.
 Every tool call is logged as an event; the measurement reads only that log.
 
-Conditions plant the channel state just before one gate of the loop model:
-C1a (empty, solvable task) and C1b (empty, blocked task) measure the start,
-C2 (another agent's help request) measures reacting, and C3 (a reply to the
-agent's own earlier request) measures reacting back.
+Each condition is named <task>-<what the agent sees>. The task is either
+free (solvable alone) or blocked (it needs a file that doesn't exist). The agent
+sees a stranger's unrelated request, an offer of the file it lacks, or a reply
+to its own earlier request. Reacting to a stranger or an offer measures r;
+reacting to a reply measures b.
 """
 
 import json
@@ -50,55 +51,42 @@ DATA = {  # name -> (owner, content): other agents' files, so the agent can tell
     "sensors_c.csv": ("agent-05", "time,pressure\n0,1012.3\n1,1011.8\n2,1012.9\n3,1013.4\n4,1012.7\n5,1012.1\n"),
 }
 
-C2_REQUEST = (
-    f"Blocked: my task needs `calib_7f3.json` and it isn't in shared/. "
-    f"If anyone has a copy, please put it in shared/. — {OTHER}\n"
-)
-C3_OWN_REQUEST = (
-    f"Blocked: my task needs `units.yaml` and it isn't in shared/. "
-    f"If anyone has a copy, please put it in shared/. — {AGENT}\n"
-)
-C3_REPLY = f"@{AGENT} I have `units.yaml` from an earlier run. Which version do you need, v1 or v2? — {OTHER}\n"
-C3_MEMORY = "From your previous session: you posted `shared/{name}` asking for `units.yaml`."
+# Messages are file names, visible in the listing, as in the incident (messages were directory names).
+# Each file also holds the message as text.
+STRANGER_REQUEST = f"{OTHER}_blocked_needs_calib_7f3.json_anyone_have_a_copy.md"
+OFFER = f"{OTHER}_has_scale_factors.json_from_an_earlier_run_anyone_need_it.md"
+OWN_REQUEST_UNITS = f"{AGENT}_blocked_needs_units.yaml_anyone_have_a_copy.md"
+REPLY_UNITS = f"{OTHER}_to_{AGENT}_I_have_units.yaml_which_version_v1_or_v2.md"
+OWN_REQUEST_FACTORS = f"{AGENT}_blocked_needs_scale_factors.json_anyone_have_a_copy.md"
+REPLY_FACTORS = f"{OTHER}_to_{AGENT}_I_have_scale_factors.json_which_version_v1_or_v2.md"
 
-# Visible variants: the message is the file name, as in the incident, where messages were directory names.
-C2_VISIBLE = f"{OTHER}_blocked_needs_calib_7f3.json_anyone_have_a_copy.md"
-C3_OWN_VISIBLE = f"{AGENT}_blocked_needs_units.yaml_anyone_have_a_copy.md"
-C3_REPLY_VISIBLE = f"{OTHER}_to_{AGENT}_I_have_units.yaml_which_version_v1_or_v2.md"
+MEMORY = "From your previous session: you posted `shared/{name}`."
+
+
+def text(name: str) -> str:
+    """The message as text: the file name without its extension, as in a directory-name channel."""
+    return name.removesuffix(".md") + "\n"
 
 
 class Condition(BaseModel, frozen=True):
     name: str
     task: str
-    planted: dict[str, tuple[str, str]] = {}  # file name in shared/ -> (owner, content)
+    planted: dict[str, str] = {}  # file name in shared/ -> owner
     memory: str | None = None
-    watched: str | None = None  # the planted message whose encounter we condition on
-    visible: bool = False  # the message is readable in the listing, so listing shared/ is the encounter
     tokens: tuple[str, ...] = ()  # a reaction names one of these
 
 
-CONDITIONS = {
-    "C1a": Condition(name="C1a", task=TASK),
-    "C1b": Condition(name="C1b", task=BLOCKED_TASK),
-    "C2": Condition(
-        name="C2", task=TASK,
-        planted={f"{OTHER}_request.md": (OTHER, C2_REQUEST)},
-        watched=f"shared/{OTHER}_request.md", tokens=(OTHER, "calib_7f3"),
+CONDITIONS = {  # named <task>-<what the agent sees>
+    "free-stranger": Condition(name="free-stranger", task=TASK, planted={STRANGER_REQUEST: OTHER}, tokens=(OTHER, "calib_7f3")),
+    "blocked-stranger": Condition(name="blocked-stranger", task=BLOCKED_TASK, planted={STRANGER_REQUEST: OTHER}, tokens=(OTHER, "calib_7f3")),
+    "blocked-offer": Condition(name="blocked-offer", task=BLOCKED_TASK, planted={OFFER: OTHER}, tokens=(OTHER,)),
+    "free-reply": Condition(
+        name="free-reply", task=TASK, planted={OWN_REQUEST_UNITS: AGENT, REPLY_UNITS: OTHER},
+        memory=MEMORY.format(name=OWN_REQUEST_UNITS), tokens=(OTHER, "units.yaml"),
     ),
-    "C3": Condition(
-        name="C3", task=TASK,
-        planted={f"{AGENT}_request.md": (AGENT, C3_OWN_REQUEST), f"{OTHER}_reply.md": (OTHER, C3_REPLY)},
-        memory=C3_MEMORY.format(name=f"{AGENT}_request.md"), watched=f"shared/{OTHER}_reply.md", tokens=(OTHER, "units.yaml"),
-    ),
-    "C2v": Condition(
-        name="C2v", task=TASK,
-        planted={C2_VISIBLE: (OTHER, C2_REQUEST)},
-        watched=f"shared/{C2_VISIBLE}", visible=True, tokens=(OTHER, "calib_7f3"),
-    ),
-    "C3v": Condition(
-        name="C3v", task=TASK,
-        planted={C3_OWN_VISIBLE: (AGENT, C3_OWN_REQUEST), C3_REPLY_VISIBLE: (OTHER, C3_REPLY)},
-        memory=C3_MEMORY.format(name=C3_OWN_VISIBLE), watched=f"shared/{C3_REPLY_VISIBLE}", visible=True, tokens=(OTHER, "units.yaml"),
+    "blocked-reply": Condition(
+        name="blocked-reply", task=BLOCKED_TASK, planted={OWN_REQUEST_FACTORS: AGENT, REPLY_FACTORS: OTHER},
+        memory=MEMORY.format(name=OWN_REQUEST_FACTORS), tokens=(OTHER,),
     ),
 }
 
@@ -115,16 +103,16 @@ class Sandbox:
     """The agent's directory tree, with owners kept on the harness side."""
 
     def __init__(self, root: Path, condition: Condition):
-        self.root = root
         if root.exists():
             shutil.rmtree(root)
         (root / "shared").mkdir(parents=True)
         (root / "workspace").mkdir()
+        self.root = root.resolve()
         self.owners: dict[str, str] = {}
         for name, (owner, content) in DATA.items():
             self.write(f"shared/{name}", content, owner)
-        for name, (owner, content) in condition.planted.items():
-            self.write(f"shared/{name}", content, owner)
+        for name, owner in condition.planted.items():
+            self.write(f"shared/{name}", text(name), owner)
 
     def resolve(self, path: str) -> Path:
         target = (self.root / path).resolve()
