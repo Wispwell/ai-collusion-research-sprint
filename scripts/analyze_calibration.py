@@ -1,15 +1,17 @@
 """Measure r and b from the calibration logs.
 
-    PYTHONPATH=src python scripts/analyze_calibration.py
+    PYTHONPATH=src python scripts/analyze_calibration.py            # v3
+    PYTHONPATH=src python scripts/analyze_calibration.py --version v4
 
 Encounter: the agent listed `shared/` (the message is visible in the listing).
 Reaction: a later write into `shared/` whose path or content names one of the
 condition's tokens. Writes to `workspace/` never count.
 
-Writes experiments/v3/results/calibration.md (rates with 95% Wilson intervals, plus every
-write into `shared/` for manual audit) and a markdown transcript per reacting run.
+Writes experiments/<version>/results/calibration.md (rates with 95% Wilson intervals, plus
+every write into `shared/` for manual audit) and a markdown transcript per reacting run.
 """
 
+import argparse
 import json
 import math
 from pathlib import Path
@@ -17,9 +19,6 @@ from pathlib import Path
 from harness.testbed import CONDITIONS
 
 ROOT = Path(__file__).resolve().parent.parent
-RESULTS = ROOT / "experiments" / "v3" / "results"
-LOGS = RESULTS / "logs"
-TRANSCRIPTS = RESULTS / "transcripts"
 
 
 def wilson(k: int, n: int, z: float = 1.96) -> tuple[float, float]:
@@ -57,11 +56,9 @@ def transcript(run: dict, path: Path) -> None:
     path.write_text("\n".join(lines))
 
 
-def main() -> None:
-    rows = ["# Calibration results", "", "| condition | runs | encounters | reactions | rate | 95% CI |", "|---|---|---|---|---|---|"]
-    audit = ["", "## Every write into shared/ (for manual audit)", ""]
+def tally(logs: Path, transcripts: Path, label: str, rows: list[str], audit: list[str]) -> None:
     for name, condition in CONDITIONS.items():
-        files = sorted((LOGS / name).glob("run-*.json"))
+        files = sorted((logs / name).glob("run-*.json"))
         if not files:
             continue
         seen = reacted = 0
@@ -71,16 +68,32 @@ def main() -> None:
             seen += s
             reacted += r
             for e in posts:
-                audit.append(f"- **{name} run {run['index']:02d}**{' (reaction)' if r else ''}: `{e['path']}`: {(e['content'] or '').strip()[:200]!r}")
+                audit.append(f"- **{label}{name} run {run['index']:02d}**{' (reaction)' if r else ''}: `{e['path']}`: {(e['content'] or '').strip()[:200]!r}")
             if r:
-                transcript(run, TRANSCRIPTS / name / f"run-{run['index']:02d}.md")
+                transcript(run, transcripts / name / f"run-{run['index']:02d}.md")
         lo, hi = wilson(reacted, seen)
         rate = reacted / seen if seen else math.nan
-        rows.append(f"| {name} | {len(files)} | {seen} | {reacted} | {rate:.2f} | [{lo:.2f}, {hi:.2f}] |")
+        rows.append(f"| {label}{name} | {len(files)} | {seen} | {reacted} | {rate:.2f} | [{lo:.2f}, {hi:.2f}] |")
+
+
+def main() -> None:
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--version", default="v3")
+    args = parser.parse_args()
+    results = ROOT / "experiments" / args.version / "results"
+    logs = results / "logs"
+    rows = ["# Calibration results", "", "| condition | runs | encounters | reactions | rate | 95% CI |", "|---|---|---|---|---|---|"]
+    audit = ["", "## Every write into shared/ (for manual audit)", ""]
+    if args.version == "v3":
+        tally(logs, results / "transcripts", "", rows, audit)
+    else:
+        for model_dir in sorted(p for p in logs.iterdir() if p.is_dir()):
+            model = model_dir.name.replace("__", "/")
+            tally(model_dir, results / "transcripts" / model_dir.name, f"{model} · ", rows, audit)
     if len(audit) == 3:
         audit.append("(none)")
     text = "\n".join(rows + audit) + "\n"
-    (RESULTS / "calibration.md").write_text(text)
+    (results / "calibration.md").write_text(text)
     print(text)
 
 

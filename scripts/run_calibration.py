@@ -1,11 +1,13 @@
 """Run calibration conditions.
 
     PYTHONPATH=src python scripts/run_calibration.py free-stranger blocked-offer --runs 30 --concurrency 10
+    PYTHONPATH=src python scripts/run_calibration.py blocked-offer --version v4 --model openai/gpt-5.6-terra
 
 Each run gets a fresh sandbox under work/sandboxes/ and its own trace database
 under work/traces/, both outside anything the agent can reach. The measured
-record of each run goes to experiments/v3/results/logs/<condition>/run-NN.json. Existing
-results are skipped, so an interrupted batch can be resumed.
+record of each run goes to experiments/<version>/results/logs/[<model>/]<condition>/run-NN.json:
+v3 used one model (no model directory); v4 adds one directory per model. Existing results are
+skipped, so an interrupted batch can be resumed.
 """
 
 import argparse
@@ -14,32 +16,38 @@ from pathlib import Path
 
 from protonous import Session
 
-from harness.testbed import CONDITIONS, run_once, save
+from harness.testbed import CONDITIONS, MODEL, run_once, save
 
 ROOT = Path(__file__).resolve().parent.parent
 WORK = ROOT / "work"
-RESULTS = ROOT / "experiments" / "v3" / "results"
-LOGS = RESULTS / "logs"
 
 
-async def one(condition: str, index: int, gate: asyncio.Semaphore) -> None:
-    out = LOGS / condition / f"run-{index:02d}.json"
+def slug(model: str) -> str:
+    return model.replace("/", "__")
+
+
+async def one(condition: str, index: int, gate: asyncio.Semaphore, version: str, model: str) -> None:
+    logs = ROOT / "experiments" / version / "results" / "logs"
+    if version != "v3":
+        logs = logs / slug(model)
+    out = logs / condition / f"run-{index:02d}.json"
     if out.exists():
         return
     async with gate:
         traces = WORK / "traces"
         traces.mkdir(parents=True, exist_ok=True)
-        db = traces / f"{condition}-{index:02d}.db"
+        tag = f"{version}-{slug(model)}-{condition}-{index:02d}"
+        db = traces / f"{tag}.db"
         db.unlink(missing_ok=True)
-        with Session.create(f"{condition}-{index:02d}", {"condition": condition, "index": index}, db=db) as session:
+        with Session.create(tag, {"version": version, "model": model, "condition": condition, "index": index}, db=db) as session:
             try:
-                result = await run_once(CONDITIONS[condition], index, WORK / "sandboxes" / condition / f"run-{index:02d}", session)
+                result = await run_once(CONDITIONS[condition], index, WORK / "sandboxes" / tag, session, model)
             except Exception as error:  # recorded in the trace db; leave no result so it reruns
-                print(f"{condition} run {index}: {type(error).__name__}: {error}")
+                print(f"{model} {condition} run {index}: {type(error).__name__}: {error}")
                 return
         save(result, out)
         writes = [e.path for e in result.events if e.tool == "write_file"]
-        print(f"{condition} run {index}: {result.steps} steps, {result.stop}, writes {writes}, cost {result.cost:.4f}")
+        print(f"{model} {condition} run {index}: {result.steps} steps, {result.stop}, writes {writes}, cost {result.cost:.4f}")
 
 
 async def main() -> None:
@@ -48,9 +56,11 @@ async def main() -> None:
     parser.add_argument("--runs", type=int, default=30)
     parser.add_argument("--start", type=int, default=0)
     parser.add_argument("--concurrency", type=int, default=10)
+    parser.add_argument("--version", default="v3")
+    parser.add_argument("--model", default=MODEL)
     args = parser.parse_args()
     gate = asyncio.Semaphore(args.concurrency)
-    jobs = [one(c, i, gate) for c in args.conditions for i in range(args.start, args.start + args.runs)]
+    jobs = [one(c, i, gate, args.version, args.model) for c in args.conditions for i in range(args.start, args.start + args.runs)]
     await asyncio.gather(*jobs)
 
 

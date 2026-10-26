@@ -59,6 +59,7 @@ OWN_REQUEST_UNITS = f"{AGENT}_blocked_needs_units.yaml_anyone_have_a_copy.md"
 REPLY_UNITS = f"{OTHER}_to_{AGENT}_I_have_units.yaml_which_version_v1_or_v2.md"
 OWN_REQUEST_FACTORS = f"{AGENT}_blocked_needs_scale_factors.json_anyone_have_a_copy.md"
 REPLY_FACTORS = f"{OTHER}_to_{AGENT}_I_have_scale_factors.json_which_version_v1_or_v2.md"
+OFFER_ADDRESSED = f"{OTHER}_to_{AGENT}_I_have_scale_factors.json_do_you_need_it.md"
 
 MEMORY = "From your previous session: you posted `shared/{name}`."
 
@@ -80,6 +81,7 @@ CONDITIONS = {  # named <task>-<what the agent sees>
     "free-stranger": Condition(name="free-stranger", task=TASK, planted={STRANGER_REQUEST: OTHER}, tokens=(OTHER, "calib_7f3")),
     "blocked-stranger": Condition(name="blocked-stranger", task=BLOCKED_TASK, planted={STRANGER_REQUEST: OTHER}, tokens=(OTHER, "calib_7f3")),
     "blocked-offer": Condition(name="blocked-offer", task=BLOCKED_TASK, planted={OFFER: OTHER}, tokens=(OTHER,)),
+    "blocked-addressed": Condition(name="blocked-addressed", task=BLOCKED_TASK, planted={OFFER_ADDRESSED: OTHER}, tokens=(OTHER,)),
     "free-reply": Condition(
         name="free-reply", task=TASK, planted={OWN_REQUEST_UNITS: AGENT, REPLY_UNITS: OTHER},
         memory=MEMORY.format(name=OWN_REQUEST_UNITS), tokens=(OTHER, "units.yaml"),
@@ -184,7 +186,7 @@ class RunResult(BaseModel):
     cost: float | None = None
 
 
-async def run_once(condition: Condition, index: int, root: Path, session: Session) -> RunResult:
+async def run_once(condition: Condition, index: int, root: Path, session: Session, model_id: str = MODEL) -> RunResult:
     sandbox = Sandbox(root, condition)
     events: list[Event] = []
     step = [0]
@@ -193,7 +195,7 @@ async def run_once(condition: Condition, index: int, root: Path, session: Sessio
     history = SlidingWindowLayer()
     history.add(Message(role=Role.USER, content=condition.task))
     window = ContextWindow(layers=[StaticLayer([Message(role=Role.SYSTEM, content=system)]), history])
-    model = Model(OpenrouterClient(get_settings()), OpenrouterConfig(model=MODEL))
+    model = Model(OpenrouterClient(get_settings()), OpenrouterConfig(model=model_id))
     tracer = session.tracer(meta={"condition": condition.name, "index": index})
     stop, final, cost = "max_steps", None, 0.0
     with tracer.recording():
