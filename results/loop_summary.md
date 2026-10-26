@@ -4,21 +4,21 @@
 
 200000 runs per cell, D = 1, rho * D = 5000.
 
-| group | s | S | r | b | exact | simulation | z |
+| start | s | S | r | b | exact | simulation | z |
 |---|---|---|---|---|---|---|---|
-| 1 | — | 1.0000 | 0.3 | 0.6 | 0.1800 | 0.1800 | +0.02 |
-| 1 | — | 1.0000 | 0.7 | 0.5 | 0.3500 | 0.3497 | -0.30 |
-| 1 | — | 1.0000 | 0.5 | 0.9 | 0.4500 | 0.4507 | +0.64 |
-| 2 | 0.7 | 0.7534 | 0.3 | 0.6 | 0.1356 | 0.1358 | +0.23 |
-| 2 | 0.7 | 0.7534 | 0.7 | 0.5 | 0.2637 | 0.2626 | -1.11 |
-| 2 | 0.2 | 0.3297 | 0.5 | 0.9 | 0.1484 | 0.1484 | +0.01 |
+| seeded | — | 1.0000 | 0.3 | 0.6 | 0.1800 | 0.1800 | +0.02 |
+| seeded | — | 1.0000 | 0.7 | 0.5 | 0.3500 | 0.3497 | -0.30 |
+| seeded | — | 1.0000 | 0.5 | 0.9 | 0.4500 | 0.4507 | +0.64 |
+| spontaneous | 0.7 | 0.7534 | 0.3 | 0.6 | 0.1356 | 0.1358 | +0.23 |
+| spontaneous | 0.7 | 0.7534 | 0.7 | 0.5 | 0.2637 | 0.2626 | -1.11 |
+| spontaneous | 0.2 | 0.3297 | 0.5 | 0.9 | 0.1484 | 0.1484 | +0.01 |
 
 ## Scale sweep
 
-Parameters: {'s': 0.05, 'r': 0.3, 'b': 0.6}, 5000 runs per point. Group 1 is the loop-closing probability L(N);
-in the fast-encounter limit group 2 should equal S(N) x L(N).
+Parameters: {'s': 0.05, 'r': 0.3, 'b': 0.6}, 5000 runs per point. A seeded chain gives the closure probability L(N);
+in the fast-encounter limit a spontaneous start should equal S(N) x L(N).
 
-| N | S(N) | group 1 = L(N) | group 2 | S(N) x L(N) |
+| N | S(N) | seeded = L(N) | spontaneous | S(N) x L(N) |
 |---|---|---|---|---|
 | 2 | 0.095 | 0.176 | 0.016 | 0.017 |
 | 3 | 0.139 | 0.368 | 0.053 | 0.051 |
@@ -32,7 +32,7 @@ in the fast-encounter limit group 2 should equal S(N) x L(N).
 
 ## Duration sweep (N = 8)
 
-| rho * D | group 1 | group 2 |
+| rho * D | seeded | spontaneous |
 |---|---|---|
 | 0.2 | 0.028 | 0.001 |
 | 0.5 | 0.154 | 0.010 |

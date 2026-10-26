@@ -12,9 +12,9 @@ first encounter the agent decides once (one-shot):
 A reaction is a new message, open to reactions in turn. Agents never react to
 their own messages.
 
-The groups differ only in the start. In group 1 the first message is already
-in the channel at time 0, written by one of the agents (a planted earlier post).
-In group 2 the channel starts empty and each agent posts first at rate s.
+Two starts: group=1 is a seeded chain (a first message from one of the agents is
+in the channel at time 0); group=2 is a spontaneous start (the channel begins
+empty and each agent posts first at rate s).
 """
 
 import heapq

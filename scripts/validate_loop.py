@@ -1,7 +1,7 @@
 """Sanity checks for the loop model.
 
 1. Exact cases (N = 2, fast-encounter limit) against the simulation.
-2. Scale: P(first turn) vs number of agents, both groups.
+2. Scale: P(first turn) vs number of agents, for seeded and spontaneous starts.
 3. Duration: P(first turn) vs rho * D.
 
 Writes figures to results/figures/ and loop_summary.md to results/.
@@ -40,7 +40,7 @@ EXACT_CASES = [  # (group, s, r, b); s is unused in group 1, where S = 1
 
 def exact_checks() -> list[str]:
     lines = ["## Exact cases (N = 2): P = S * r * b", "", f"{EXACT_RUNS} runs per cell, D = 1, rho * D = 5000.", "",
-             "| group | s | S | r | b | exact | simulation | z |", "|---|---|---|---|---|---|---|---|"]
+             "| start | s | S | r | b | exact | simulation | z |", "|---|---|---|---|---|---|---|---|"]
     for i, (group, s_rate, r, b) in enumerate(EXACT_CASES):
         params = LoopParams(n=2, s=s_rate or 0.0, r=r, b=b, **FAST)
         start = start_probability(2, params.s, params.duration, group)
@@ -48,7 +48,7 @@ def exact_checks() -> list[str]:
         simulated = estimate(params, group, EXACT_RUNS, seed=100 + i).onset
         z = (simulated - exact) / math.sqrt(exact * (1 - exact) / EXACT_RUNS)
         s_cell = "—" if group == 1 else f"{s_rate}"
-        lines.append(f"| {group} | {s_cell} | {start:.4f} | {r} | {b} | {exact:.4f} | {simulated:.4f} | {z:+.2f} |")
+        lines.append(f"| {'seeded' if group == 1 else 'spontaneous'} | {s_cell} | {start:.4f} | {r} | {b} | {exact:.4f} | {simulated:.4f} | {z:+.2f} |")
     return lines + [""]
 
 
@@ -71,10 +71,10 @@ def main() -> None:
     sizes, scale = scale_sweep()
     fig, ax = plt.subplots(figsize=(6, 4))
     for g, color in ((1, "C0"), (2, "C1")):
-        ax.plot(sizes, scale[g], "o-", color=color, ms=4, label=f"group {g} (simulation)")
+        ax.plot(sizes, scale[g], "o-", color=color, ms=4, label=("seeded chain" if g == 1 else "spontaneous start") + " (simulation)")
     product = [start_probability(n, ILLUSTRATIVE["s"], FAST["duration"], 2) * scale[1][i] for i, n in enumerate(sizes)]
-    ax.plot(sizes, product, "--", color="C1", lw=1, label="S(N) x group 1")
-    ax.set(xscale="log", xlabel="number of agents N", ylabel="P(first turn)", title=f"Loop model vs scale ({ILLUSTRATIVE})")
+    ax.plot(sizes, product, "--", color="C1", lw=1, label="S(N) x seeded")
+    ax.set(xscale="log", xlabel="number of agents N", ylabel="P(first turn)", title=f"Onset vs population size ({ILLUSTRATIVE})")
     ax.set_xticks(sizes, [str(n) for n in sizes], fontsize=7)
     ax.xaxis.set_minor_formatter(plt.NullFormatter())
     ax.legend(fontsize=8)
@@ -84,19 +84,19 @@ def main() -> None:
     spans, duration = duration_sweep()
     fig, ax = plt.subplots(figsize=(6, 4))
     for g, color in ((1, "C0"), (2, "C1")):
-        ax.plot(spans, duration[g], "o-", color=color, ms=4, label=f"group {g}")
-    ax.set(xscale="log", xlabel="rho * D", ylabel="P(first turn)", title="Loop model vs duration (N = 8)")
+        ax.plot(spans, duration[g], "o-", color=color, ms=4, label="seeded chain" if g == 1 else "spontaneous start")
+    ax.set(xscale="log", xlabel="rho * D", ylabel="P(first turn)", title="Onset vs duration (N = 8)")
     ax.legend(fontsize=8)
     fig.tight_layout()
     fig.savefig(FIGURES / "loop_duration.png", dpi=150)
 
-    lines += ["## Scale sweep", "", f"Parameters: {ILLUSTRATIVE}, {SWEEP_RUNS} runs per point. Group 1 is the loop-closing probability L(N);",
-              "in the fast-encounter limit group 2 should equal S(N) x L(N).", "",
-              "| N | S(N) | group 1 = L(N) | group 2 | S(N) x L(N) |", "|---|---|---|---|---|"]
+    lines += ["## Scale sweep", "", f"Parameters: {ILLUSTRATIVE}, {SWEEP_RUNS} runs per point. A seeded chain gives the closure probability L(N);",
+              "in the fast-encounter limit a spontaneous start should equal S(N) x L(N).", "",
+              "| N | S(N) | seeded = L(N) | spontaneous | S(N) x L(N) |", "|---|---|---|---|---|"]
     for i, n in enumerate(sizes):
         start = start_probability(n, ILLUSTRATIVE["s"], FAST["duration"], 2)
         lines.append(f"| {n} | {start:.3f} | {scale[1][i]:.3f} | {scale[2][i]:.3f} | {start * scale[1][i]:.3f} |")
-    lines += ["", "## Duration sweep (N = 8)", "", "| rho * D | group 1 | group 2 |", "|---|---|---|"]
+    lines += ["", "## Duration sweep (N = 8)", "", "| rho * D | seeded | spontaneous |", "|---|---|---|"]
     lines += [f"| {d} | {duration[1][i]:.3f} | {duration[2][i]:.3f} |" for i, d in enumerate(spans)]
     (RESULTS / "loop_summary.md").write_text("\n".join(lines) + "\n")
     print("\n".join(lines))
