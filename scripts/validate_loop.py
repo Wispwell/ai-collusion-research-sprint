@@ -74,7 +74,7 @@ def main() -> None:
         ax.plot(sizes, scale[g], "o-", color=color, ms=4, label=("seeded chain" if g == 1 else "spontaneous start") + " (simulation)")
     product = [start_probability(n, ILLUSTRATIVE["s"], FAST["duration"], 2) * scale[1][i] for i, n in enumerate(sizes)]
     ax.plot(sizes, product, "--", color="C1", lw=1, label="S(N) x seeded")
-    ax.set(xscale="log", xlabel="number of agents N", ylabel="P(first turn)", title=f"Onset vs population size ({ILLUSTRATIVE})")
+    ax.set(xscale="log", xlabel="number of agents $N$", ylabel="$P$(onset)")
     ax.set_xticks(sizes, [str(n) for n in sizes], fontsize=7)
     ax.xaxis.set_minor_formatter(plt.NullFormatter())
     ax.legend(fontsize=8)
@@ -85,7 +85,7 @@ def main() -> None:
     fig, ax = plt.subplots(figsize=(6, 4))
     for g, color in ((1, "C0"), (2, "C1")):
         ax.plot(spans, duration[g], "o-", color=color, ms=4, label="seeded chain" if g == 1 else "spontaneous start")
-    ax.set(xscale="log", xlabel="rho * D", ylabel="P(first turn)", title="Onset vs duration (N = 8)")
+    ax.set(xscale="log", xlabel=r"duration $\rho D$", ylabel="$P$(onset)")
     ax.legend(fontsize=8)
     fig.tight_layout()
     fig.savefig(FIGURES / "loop_duration.png", dpi=150)
