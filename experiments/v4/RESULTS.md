@@ -1,6 +1,6 @@
 # v4 results
 
-Run on 26 October 2026, after the prediction was pushed. 30 runs per cell, except where Gemini runs aborted on the provider side and weren't retried in time (n shown). Total v4 API cost: about $9.
+Run on 26 October 2026, after the prediction was pushed. 30 runs per cell, except where Gemini runs aborted on the provider side and weren't retried in time (n shown). Total v4 API cost: about $13.
 
 | Model | offer, not addressed | offer, addressed by name | reply to its own request |
 |---|---|---|---|
