@@ -11,7 +11,7 @@ from pathlib import Path
 import matplotlib.pyplot as plt
 
 from harness.testbed import CONDITIONS
-from analyze_calibration import measure, wilson
+from analyze_calibration import any_message, measure, wilson
 
 ROOT = Path(__file__).resolve().parent.parent
 V3 = ROOT / "experiments" / "v3" / "results" / "logs"
@@ -27,25 +27,29 @@ MODELS = {
 }
 
 
-def rate(directory: Path, condition: str) -> tuple[int, int]:
-    seen = reacted = 0
+def rate(directory: Path, condition: str) -> tuple[int, int, int]:
+    seen = reacted = broad = 0
     for f in sorted((directory / condition).glob("run-*.json")):
-        s, r, _ = measure(json.loads(f.read_text()), CONDITIONS[condition].tokens)
+        run = json.loads(f.read_text())
+        s, r, _ = measure(run, CONDITIONS[condition].tokens)
         seen += s
         reacted += r
-    return reacted, seen
+        broad += any_message(run)
+    return reacted, seen, broad
 
 
 def main() -> None:
-    fig, ax = plt.subplots(figsize=(7, 3.6))
+    fig, ax = plt.subplots(figsize=(7, 4.2))
     width = 0.2
     for i, (model, label) in enumerate(MODELS.items()):
         xs, ys, lows, highs = [], [], [], []
         for j, condition in enumerate(ORDER):
             source = V3 if model == "deepseek/deepseek-v4-flash" and condition != "blocked-addressed" else V4 / model.replace("/", "__")
-            k, n = rate(source, condition)
+            k, n, wide = rate(source, condition)
             if n == 0:
                 continue
+            if wide != k:
+                ax.plot(j + (i - 1.5) * width, wide / n, marker="o", mfc="none", mec="black", ms=6, zorder=3)
             lo, hi = wilson(k, n)
             xs.append(j + (i - 1.5) * width)
             ys.append(k / n)
@@ -55,8 +59,9 @@ def main() -> None:
     ax.set_xticks(range(len(ORDER)), ["offer,\nnot addressed", "offer,\naddressed by name", "reply to its\nown request"])
     ax.set_ylabel("share of runs that reacted")
     ax.set_ylim(0, 1.05)
-    ax.set_title("Blocked agents: share that reacted, by message (95% CI, n = 30 per bar)")
-    ax.legend(fontsize=7, ncol=2)
+    ax.set_title("Blocked agents: share that reacted, by message (95% CI, n ≈ 30 per bar)")
+    ax.plot([], [], marker="o", mfc="none", mec="black", ls="none", label="any message (broad rule), where it differs")
+    ax.legend(fontsize=7, ncol=3, loc="upper center", bbox_to_anchor=(0.5, -0.22), frameon=False)
     fig.tight_layout()
     FIGURE.parent.mkdir(parents=True, exist_ok=True)
     fig.savefig(FIGURE, dpi=200)

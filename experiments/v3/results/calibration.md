@@ -1,12 +1,12 @@
 # Calibration results
 
-| condition | runs | encounters | reactions | rate | 95% CI |
-|---|---|---|---|---|---|
-| free-stranger | 30 | 30 | 0 | 0.00 | [0.00, 0.11] |
-| blocked-stranger | 30 | 30 | 0 | 0.00 | [0.00, 0.11] |
-| blocked-offer | 30 | 30 | 0 | 0.00 | [0.00, 0.11] |
-| free-reply | 30 | 30 | 0 | 0.00 | [0.00, 0.11] |
-| blocked-reply | 30 | 30 | 21 | 0.70 | [0.52, 0.83] |
+| condition | runs | encounters | reactions | rate | 95% CI | any message |
+|---|---|---|---|---|---|---|
+| free-stranger | 30 | 30 | 0 | 0.00 | [0.00, 0.11] | 0 |
+| blocked-stranger | 30 | 30 | 0 | 0.00 | [0.00, 0.11] | 0 |
+| blocked-offer | 30 | 30 | 0 | 0.00 | [0.00, 0.11] | 0 |
+| free-reply | 30 | 30 | 0 | 0.00 | [0.00, 0.11] | 0 |
+| blocked-reply | 30 | 30 | 21 | 0.70 | [0.52, 0.83] | 21 |
 
 ## Every write into shared/ (for manual audit)
 
